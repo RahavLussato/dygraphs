@@ -223,26 +223,28 @@ CustomBarsHandler.prototype.extractSeries = function (rawData, i, options) {
   var series = [];
   var x, y, point;
   var logScale = options.get('logscale');
-  for (var j = 0; j < Object.keys(rawData).length; j++) {
-    x = rawData[j][0];
-    point = rawData[j][i];
-    if (logScale && point !== null) {
-      // On the log scale, points less than zero do not exist.
-      // This will create a gap in the chart.
-      if (point[0] <= 0 || point[1] <= 0 || point[2] <= 0) {
-        point = null;
+  for (var j = 0; j < rawData.length; j++) {
+    if (rawData[j] !== undefined) {
+      x = rawData[j][0];
+      point = rawData[j][i];
+      if (logScale && point !== null) {
+        // On the log scale, points less than zero do not exist.
+        // This will create a gap in the chart.
+        if (point[0] <= 0 || point[1] <= 0 || point[2] <= 0) {
+          point = null;
+        }
       }
-    }
-    // Extract to the unified data format.
-    if (point !== null) {
-      y = point[1];
-      if (y !== null && !isNaN(y)) {
-        series.push([x, y, [point[0], point[2]]]);
+      // Extract to the unified data format.
+      if (point !== null) {
+        y = point[1];
+        if (y !== null && !isNaN(y)) {
+          series.push([x, y, [point[0], point[2]]]);
+        } else {
+          series.push([x, y, [y, y]]);
+        }
       } else {
-        series.push([x, y, [y, y]]);
+        series.push([x, null, [null, null]]);
       }
-    } else {
-      series.push([x, null, [null, null]]);
     }
   }
   return series;
@@ -307,7 +309,7 @@ module.exports = exports['default'];
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
-  value: true
+    value: true
 });
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
@@ -326,74 +328,76 @@ ErrorBarsHandler.prototype = new _bars2["default"]();
 
 /** @inheritDoc */
 ErrorBarsHandler.prototype.extractSeries = function (rawData, i, options) {
-  // TODO(danvk): pre-allocate series here.
-  var series = [];
-  var x, y, variance, point;
-  var sigma = options.get("sigma");
-  var logScale = options.get('logscale');
-  for (var j = 0; j < Object.keys(rawData).length; j++) {
-    x = rawData[j][0];
-    point = rawData[j][i];
-    if (logScale && point !== null) {
-      // On the log scale, points less than zero do not exist.
-      // This will create a gap in the chart.
-      if (point[0] <= 0 || point[0] - sigma * point[1] <= 0) {
-        point = null;
-      }
+    // TODO(danvk): pre-allocate series here.
+    var series = [];
+    var x, y, variance, point;
+    var sigma = options.get("sigma");
+    var logScale = options.get('logscale');
+    for (var j = 0; j < rawData.length; j++) {
+        if (rawData[j] !== undefined) {
+            x = rawData[j][0];
+            point = rawData[j][i];
+            if (logScale && point !== null) {
+                // On the log scale, points less than zero do not exist.
+                // This will create a gap in the chart.
+                if (point[0] <= 0 || point[0] - sigma * point[1] <= 0) {
+                    point = null;
+                }
+            }
+            // Extract to the unified data format.
+            if (point !== null) {
+                y = point[0];
+                if (y !== null && !isNaN(y)) {
+                    variance = sigma * point[1];
+                    // preserve original error value in extras for further
+                    // filtering
+                    series.push([x, y, [y - variance, y + variance, point[1]]]);
+                } else {
+                    series.push([x, y, [y, y, y]]);
+                }
+            } else {
+                series.push([x, null, [null, null, null]]);
+            }
+        }
     }
-    // Extract to the unified data format.
-    if (point !== null) {
-      y = point[0];
-      if (y !== null && !isNaN(y)) {
-        variance = sigma * point[1];
-        // preserve original error value in extras for further
-        // filtering
-        series.push([x, y, [y - variance, y + variance, point[1]]]);
-      } else {
-        series.push([x, y, [y, y, y]]);
-      }
-    } else {
-      series.push([x, null, [null, null, null]]);
-    }
-  }
-  return series;
+    return series;
 };
 
 /** @inheritDoc */
 ErrorBarsHandler.prototype.rollingAverage = function (originalData, rollPeriod, options) {
-  rollPeriod = Math.min(rollPeriod, originalData.length);
-  var rollingData = [];
-  var sigma = options.get("sigma");
+    rollPeriod = Math.min(rollPeriod, originalData.length);
+    var rollingData = [];
+    var sigma = options.get("sigma");
 
-  var i, j, y, v, sum, num_ok, stddev, variance, value;
+    var i, j, y, v, sum, num_ok, stddev, variance, value;
 
-  // Calculate the rolling average for the first rollPeriod - 1 points
-  // where there is not enough data to roll over the full number of points
-  for (i = 0; i < originalData.length; i++) {
-    sum = 0;
-    variance = 0;
-    num_ok = 0;
-    for (j = Math.max(0, i - rollPeriod + 1); j < i + 1; j++) {
-      y = originalData[j][1];
-      if (y === null || isNaN(y)) continue;
-      num_ok++;
-      sum += y;
-      variance += Math.pow(originalData[j][2][2], 2);
+    // Calculate the rolling average for the first rollPeriod - 1 points
+    // where there is not enough data to roll over the full number of points
+    for (i = 0; i < originalData.length; i++) {
+        sum = 0;
+        variance = 0;
+        num_ok = 0;
+        for (j = Math.max(0, i - rollPeriod + 1); j < i + 1; j++) {
+            y = originalData[j][1];
+            if (y === null || isNaN(y)) continue;
+            num_ok++;
+            sum += y;
+            variance += Math.pow(originalData[j][2][2], 2);
+        }
+        if (num_ok) {
+            stddev = Math.sqrt(variance) / num_ok;
+            value = sum / num_ok;
+            rollingData[i] = [originalData[i][0], value, [value - sigma * stddev, value + sigma * stddev]];
+        } else {
+            // This explicitly preserves NaNs to aid with "independent
+            // series".
+            // See testRollingAveragePreservesNaNs.
+            v = rollPeriod == 1 ? originalData[i][1] : null;
+            rollingData[i] = [originalData[i][0], v, [v, v]];
+        }
     }
-    if (num_ok) {
-      stddev = Math.sqrt(variance) / num_ok;
-      value = sum / num_ok;
-      rollingData[i] = [originalData[i][0], value, [value - sigma * stddev, value + sigma * stddev]];
-    } else {
-      // This explicitly preserves NaNs to aid with "independent
-      // series".
-      // See testRollingAveragePreservesNaNs.
-      v = rollPeriod == 1 ? originalData[i][1] : null;
-      rollingData[i] = [originalData[i][0], v, [v, v]];
-    }
-  }
 
-  return rollingData;
+    return rollingData;
 };
 
 exports["default"] = ErrorBarsHandler;
@@ -441,32 +445,34 @@ FractionsBarsHandler.prototype.extractSeries = function (rawData, i, options) {
   var mult = 100.0;
   var sigma = options.get("sigma");
   var logScale = options.get('logscale');
-  for (var j = 0; j < Object.keys(rawData).length; j++) {
-    x = rawData[j][0];
-    point = rawData[j][i];
-    if (logScale && point !== null) {
-      // On the log scale, points less than zero do not exist.
-      // This will create a gap in the chart.
-      if (point[0] <= 0 || point[1] <= 0) {
-        point = null;
+  for (var j = 0; j < rawData.length; j++) {
+    if (rawData[j] !== undefined) {
+      x = rawData[j][0];
+      point = rawData[j][i];
+      if (logScale && point !== null) {
+        // On the log scale, points less than zero do not exist.
+        // This will create a gap in the chart.
+        if (point[0] <= 0 || point[1] <= 0) {
+          point = null;
+        }
       }
-    }
-    // Extract to the unified data format.
-    if (point !== null) {
-      num = point[0];
-      den = point[1];
-      if (num !== null && !isNaN(num)) {
-        value = den ? num / den : 0.0;
-        stddev = den ? sigma * Math.sqrt(value * (1 - value) / den) : 1.0;
-        variance = mult * stddev;
-        y = mult * value;
-        // preserve original values in extras for further filtering
-        series.push([x, y, [y - variance, y + variance, num, den]]);
+      // Extract to the unified data format.
+      if (point !== null) {
+        num = point[0];
+        den = point[1];
+        if (num !== null && !isNaN(num)) {
+          value = den ? num / den : 0.0;
+          stddev = den ? sigma * Math.sqrt(value * (1 - value) / den) : 1.0;
+          variance = mult * stddev;
+          y = mult * value;
+          // preserve original values in extras for further filtering
+          series.push([x, y, [y - variance, y + variance, num, den]]);
+        } else {
+          series.push([x, num, [num, num, num, den]]);
+        }
       } else {
-        series.push([x, num, [num, num, num, den]]);
+        series.push([x, null, [null, null, null, null]]);
       }
-    } else {
-      series.push([x, null, [null, null, null, null]]);
     }
   }
   return series;
@@ -863,7 +869,7 @@ module.exports = exports["default"];
 "use strict";
 
 Object.defineProperty(exports, '__esModule', {
-  value: true
+    value: true
 });
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
@@ -885,62 +891,64 @@ var DefaultFractionHandler = function DefaultFractionHandler() {};
 DefaultFractionHandler.prototype = new _default2['default']();
 
 DefaultFractionHandler.prototype.extractSeries = function (rawData, i, options) {
-  // TODO(danvk): pre-allocate series here.
-  var series = [];
-  var x, y, point, num, den, value;
-  var mult = 100.0;
-  var logScale = options.get('logscale');
-  for (var j = 0; j < Object.keys(rawData).length; j++) {
-    x = rawData[j][0];
-    point = rawData[j][i];
-    if (logScale && point !== null) {
-      // On the log scale, points less than zero do not exist.
-      // This will create a gap in the chart.
-      if (point[0] <= 0 || point[1] <= 0) {
-        point = null;
-      }
+    // TODO(danvk): pre-allocate series here.
+    var series = [];
+    var x, y, point, num, den, value;
+    var mult = 100.0;
+    var logScale = options.get('logscale');
+    for (var j = 0; j < rawData.length; j++) {
+        if (rawData[j] !== undefined) {
+            x = rawData[j][0];
+            point = rawData[j][i];
+            if (logScale && point !== null) {
+                // On the log scale, points less than zero do not exist.
+                // This will create a gap in the chart.
+                if (point[0] <= 0 || point[1] <= 0) {
+                    point = null;
+                }
+            }
+            // Extract to the unified data format.
+            if (point !== null) {
+                num = point[0];
+                den = point[1];
+                if (num !== null && !isNaN(num)) {
+                    value = den ? num / den : 0.0;
+                    y = mult * value;
+                    // preserve original values in extras for further filtering
+                    series.push([x, y, [num, den]]);
+                } else {
+                    series.push([x, num, [num, den]]);
+                }
+            } else {
+                series.push([x, null, [null, null]]);
+            }
+        }
     }
-    // Extract to the unified data format.
-    if (point !== null) {
-      num = point[0];
-      den = point[1];
-      if (num !== null && !isNaN(num)) {
-        value = den ? num / den : 0.0;
-        y = mult * value;
-        // preserve original values in extras for further filtering
-        series.push([x, y, [num, den]]);
-      } else {
-        series.push([x, num, [num, den]]);
-      }
-    } else {
-      series.push([x, null, [null, null]]);
-    }
-  }
-  return series;
+    return series;
 };
 
 DefaultFractionHandler.prototype.rollingAverage = function (originalData, rollPeriod, options) {
-  rollPeriod = Math.min(rollPeriod, originalData.length);
-  var rollingData = [];
+    rollPeriod = Math.min(rollPeriod, originalData.length);
+    var rollingData = [];
 
-  var i;
-  var num = 0;
-  var den = 0; // numerator/denominator
-  var mult = 100.0;
-  for (i = 0; i < originalData.length; i++) {
-    num += originalData[i][2][0];
-    den += originalData[i][2][1];
-    if (i - rollPeriod >= 0) {
-      num -= originalData[i - rollPeriod][2][0];
-      den -= originalData[i - rollPeriod][2][1];
+    var i;
+    var num = 0;
+    var den = 0; // numerator/denominator
+    var mult = 100.0;
+    for (i = 0; i < originalData.length; i++) {
+        num += originalData[i][2][0];
+        den += originalData[i][2][1];
+        if (i - rollPeriod >= 0) {
+            num -= originalData[i - rollPeriod][2][0];
+            den -= originalData[i - rollPeriod][2][1];
+        }
+
+        var date = originalData[i][0];
+        var value = den ? num / den : 0.0;
+        rollingData[i] = [date, mult * value];
     }
 
-    var date = originalData[i][0];
-    var value = den ? num / den : 0.0;
-    rollingData[i] = [date, mult * value];
-  }
-
-  return rollingData;
+    return rollingData;
 };
 
 exports['default'] = DefaultFractionHandler;
@@ -984,17 +992,19 @@ DefaultHandler.prototype.extractSeries = function (rawData, i, options) {
   // TODO(danvk): pre-allocate series here.
   var series = [];
   var logScale = options.get('logscale');
-  for (var j = 0; j < Object.keys(rawData).length; j++) {
-    var x = rawData[j][0];
-    var point = rawData[j][i];
-    if (logScale) {
-      // On the log scale, points less than zero do not exist.
-      // This will create a gap in the chart.
-      if (point <= 0) {
-        point = null;
+  for (var j = 0; j < rawData.length; j++) {
+    if (rawData[j] !== undefined) {
+      var x = rawData[j][0];
+      var point = rawData[j][i];
+      if (logScale) {
+        // On the log scale, points less than zero do not exist.
+        // This will create a gap in the chart.
+        if (point <= 0) {
+          point = null;
+        }
       }
+      series.push([x, point]);
     }
-    series.push([x, point]);
   }
   return series;
 };
@@ -6575,7 +6585,7 @@ if(axis == 'y' && self.axes_[0].hasOwnProperty(opt)){return self.axes_[0][opt];}
  * If the Dygraph has dates on the x-axis, these will be millis since epoch.
  */Dygraph.prototype.xAxisRange = function(){return this.dateWindow_?this.dateWindow_:this.xAxisExtremes();}; /**
  * Returns the lower- and upper-bound x-axis values of the data set.
- */Dygraph.prototype.xAxisExtremes = function(){var pad=this.getNumericOption('xRangePad') / this.plotter_.area.w;if(this.numRows() === 0){return [0 - pad,1 + pad];}var left=this.rawData_[0][0];var right=this.rawData_[Object.keys(this.rawData_).length - 1][0];if(pad){ // Must keep this in sync with dygraph-layout _evaluateLimits()
+ */Dygraph.prototype.xAxisExtremes = function(){var pad=this.getNumericOption('xRangePad') / this.plotter_.area.w;if(this.numRows() === 0){return [0 - pad,1 + pad];}var keys=Object.keys(this.rawData_);var left=this.rawData_[keys[0]][0];var right=this.rawData_[keys[keys.length - 1]][0];if(pad){ // Must keep this in sync with dygraph-layout _evaluateLimits()
 var range=right - left;left -= range * pad;right += range * pad;}return [left,right];}; /**
  * Returns the lower- and upper-bound y-axis values for each axis. These are
  * the ranges you'll get if you double-click to zoom out or call resetZoom().
