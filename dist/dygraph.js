@@ -6585,7 +6585,7 @@ if(axis == 'y' && self.axes_[0].hasOwnProperty(opt)){return self.axes_[0][opt];}
  * If the Dygraph has dates on the x-axis, these will be millis since epoch.
  */Dygraph.prototype.xAxisRange = function(){return this.dateWindow_?this.dateWindow_:this.xAxisExtremes();}; /**
  * Returns the lower- and upper-bound x-axis values of the data set.
- */Dygraph.prototype.xAxisExtremes = function(){var pad=this.getNumericOption('xRangePad') / this.plotter_.area.w;if(this.numRows() === 0){return [0 - pad,1 + pad];}var keys=Object.keys(this.rawData_);var left=this.rawData_[keys[0]][0];var right=this.rawData_[keys[keys.length - 1]][0];if(pad){ // Must keep this in sync with dygraph-layout _evaluateLimits()
+ */Dygraph.prototype.xAxisExtremes = function(){var pad=this.getNumericOption('xRangePad') / this.plotter_.area.w;if(this.numRows() === 0){return [0 - pad,1 + pad];}var keys=Object.keys(this.rawData_.filter(function(x){return x !== undefined;}));var left=this.rawData_[keys[0]][0];var right=this.rawData_[keys[keys.length - 1]][0];if(pad){ // Must keep this in sync with dygraph-layout _evaluateLimits()
 var range=right - left;left -= range * pad;right += range * pad;}return [left,right];}; /**
  * Returns the lower- and upper-bound y-axis values for each axis. These are
  * the ranges you'll get if you double-click to zoom out or call resetZoom().

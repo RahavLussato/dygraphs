@@ -598,7 +598,9 @@ Dygraph.prototype.xAxisExtremes = function () {
   if (this.numRows() === 0) {
     return [0 - pad, 1 + pad];
   }
-  var keys = Object.keys(this.rawData_);
+  var keys = Object.keys(this.rawData_.filter(function (x) {
+    return x !== undefined;
+  }));
   var left = this.rawData_[keys[0]][0];
   var right = this.rawData_[keys[keys.length - 1]][0];
   if (pad) {
