@@ -524,8 +524,13 @@ Dygraph.prototype.xAxisExtremes = function() {
   if (pad) {
     // Must keep this in sync with dygraph-layout _evaluateLimits()
     var range = right - left;
-    left -= range * pad;
-    right += range * pad;
+    if (range) {
+        left -= range * pad;
+        right += range * pad;
+    } else {
+        left -= pad;
+        right += pad;
+    }
   }
   return [left, right];
 };

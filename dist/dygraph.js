@@ -3510,6 +3510,12 @@ if (typeof process !== 'undefined') {
         "type": "integer",
         "description": "Width, in pixels, of the chart. If the container div has been explicitly sized, this will be ignored."
       },
+      "pixelRatio": {
+        "default": "(devicePixelRatio / context.backingStoreRatio)",
+        "labels": ["Overall display"],
+        "type": "float",
+        "description": "Overrides the pixel ratio scaling factor for the canvas's 2d context. Ordinarily, this is set to the devicePixelRatio / (context.backingStoreRatio || 1), so on mobile devices, where the devicePixelRatio can be somewhere around 3, performance can be improved by overriding this value to something less precise, like 1, at the expense of resolution."
+      },
       "interactionModel": {
         "default": "...",
         "labels": ["Interactive Elements"],
@@ -6586,7 +6592,7 @@ if(axis == 'y' && self.axes_[0].hasOwnProperty(opt)){return self.axes_[0][opt];}
  */Dygraph.prototype.xAxisRange = function(){return this.dateWindow_?this.dateWindow_:this.xAxisExtremes();}; /**
  * Returns the lower- and upper-bound x-axis values of the data set.
  */Dygraph.prototype.xAxisExtremes = function(){var pad=this.getNumericOption('xRangePad') / this.plotter_.area.w;if(this.numRows() === 0){return [0 - pad,1 + pad];}var keys=Object.keys(this.rawData_.filter(function(x){return x !== undefined;}));var left=this.rawData_[keys[0]][0];var right=this.rawData_[keys[keys.length - 1]][0];if(pad){ // Must keep this in sync with dygraph-layout _evaluateLimits()
-var range=right - left;left -= range * pad;right += range * pad;}return [left,right];}; /**
+var range=right - left;if(range){left -= range * pad;right += range * pad;}else {left -= pad;right += pad;}}return [left,right];}; /**
  * Returns the lower- and upper-bound y-axis values for each axis. These are
  * the ranges you'll get if you double-click to zoom out or call resetZoom().
  * The return value is an array of [low, high] tuples, one for each y-axis.
@@ -6706,9 +6712,9 @@ var target=e.target || e.fromElement;var relatedTarget=e.relatedTarget || e.toEl
 // This happens when the graph is resized.
 if(!this.resizeHandler_){this.resizeHandler_ = function(e){dygraph.resize();}; // Update when the window is resized.
 // TODO(danvk): drop frames depending on complexity of the chart.
-this.addAndTrackEvent(window,'resize',this.resizeHandler_);}};Dygraph.prototype.resizeElements_ = function(){this.graphDiv.style.width = this.width_ + "px";this.graphDiv.style.height = this.height_ + "px";var canvasScale=utils.getContextPixelRatio(this.canvas_ctx_);this.canvas_.width = this.width_ * canvasScale;this.canvas_.height = this.height_ * canvasScale;this.canvas_.style.width = this.width_ + "px"; // for IE
+this.addAndTrackEvent(window,'resize',this.resizeHandler_);}};Dygraph.prototype.resizeElements_ = function(){this.graphDiv.style.width = this.width_ + "px";this.graphDiv.style.height = this.height_ + "px";var pixelRatioOption=this.getNumericOption('pixelRatio');var canvasScale=pixelRatioOption || utils.getContextPixelRatio(this.canvas_ctx_);this.canvas_.width = this.width_ * canvasScale;this.canvas_.height = this.height_ * canvasScale;this.canvas_.style.width = this.width_ + "px"; // for IE
 this.canvas_.style.height = this.height_ + "px"; // for IE
-if(canvasScale !== 1){this.canvas_ctx_.scale(canvasScale,canvasScale);}var hiddenScale=utils.getContextPixelRatio(this.hidden_ctx_);this.hidden_.width = this.width_ * hiddenScale;this.hidden_.height = this.height_ * hiddenScale;this.hidden_.style.width = this.width_ + "px"; // for IE
+if(canvasScale !== 1){this.canvas_ctx_.scale(canvasScale,canvasScale);}var hiddenScale=pixelRatioOption || utils.getContextPixelRatio(this.hidden_ctx_);this.hidden_.width = this.width_ * hiddenScale;this.hidden_.height = this.height_ * hiddenScale;this.hidden_.style.width = this.width_ + "px"; // for IE
 this.hidden_.style.height = this.height_ + "px"; // for IE
 if(hiddenScale !== 1){this.hidden_ctx_.scale(hiddenScale,hiddenScale);}}; /**
  * Detach DOM elements in the dygraph and null out all data references.
@@ -8812,8 +8818,8 @@ rangeSelector.prototype.updateVisibility_ = function () {
  * Resizes the range selector.
  */
 rangeSelector.prototype.resize_ = function () {
-  function setElementRect(canvas, context, rect) {
-    var canvasScale = utils.getContextPixelRatio(context);
+  function setElementRect(canvas, context, rect, pixelRatioOption) {
+    var canvasScale = pixelRatioOption || utils.getContextPixelRatio(context);
 
     canvas.style.top = rect.y + 'px';
     canvas.style.left = rect.x + 'px';
@@ -8840,8 +8846,9 @@ rangeSelector.prototype.resize_ = function () {
     h: this.getOption_('rangeSelectorHeight')
   };
 
-  setElementRect(this.bgcanvas_, this.bgcanvas_ctx_, this.canvasRect_);
-  setElementRect(this.fgcanvas_, this.fgcanvas_ctx_, this.canvasRect_);
+  var pixelRatioOption = this.dygraph_.getNumericOption('pixelRatio');
+  setElementRect(this.bgcanvas_, this.bgcanvas_ctx_, this.canvasRect_, pixelRatioOption);
+  setElementRect(this.fgcanvas_, this.fgcanvas_ctx_, this.canvasRect_, pixelRatioOption);
 };
 
 /**
